@@ -21,7 +21,8 @@ import { getRequestOrigin } from '@/lib/cms-base-url';
  *   A ghlLocationId nem publikus, csak az ügynökség és a GHL ismeri.
  */
 export async function GET(req: NextRequest) {
-  const loc = req.nextUrl.searchParams.get('loc');
+  const loc = req.nextUrl.searchParams.get('loc')?.trim();
+  const siteIdParam = req.nextUrl.searchParams.get('siteId')?.trim();
 
   if (!loc) {
     return NextResponse.json(
@@ -32,11 +33,18 @@ export async function GET(req: NextRequest) {
 
   try {
     await connectDB();
-    const site = await Site.findOne({ ghlLocationId: loc }).lean() as {
-      _id: string;
-      name: string;
-      password: string;
-    } | null;
+    type SiteAuth = { _id: string; name: string; password: string };
+
+    let site = await Site.findOne({ ghlLocationId: loc }).lean() as SiteAuth | null;
+
+    // siteId a URL-ben: első GHL belépéskor automatikusan párosít (elírás ellen)
+    if (!site && siteIdParam) {
+      const byId = await Site.findById(siteIdParam).lean() as SiteAuth | null;
+      if (byId) {
+        await Site.findByIdAndUpdate(siteIdParam, { $set: { ghlLocationId: loc } });
+        site = byId;
+      }
+    }
 
     if (!site) {
       // Nem található site ehhez a GHL location-höz

@@ -7,10 +7,11 @@ export function getCmsBaseUrl(): string {
 }
 
 /** GHL Custom Menu Link URL ({{location.id}} placeholder vagy konkrét loc). */
-export function ghlMenuAuthUrl(loc: string = '{{location.id}}'): string {
+export function ghlMenuAuthUrl(loc: string = '{{location.id}}', siteId?: string): string {
   const base = getCmsBaseUrl();
   const locParam = loc === '{{location.id}}' ? '{{location.id}}' : encodeURIComponent(loc);
-  return `${base}/api/ghl/auth?loc=${locParam}&embed=1`;
+  const sitePart = siteId ? `&siteId=${encodeURIComponent(siteId)}` : '';
+  return `${base}/api/ghl/auth?loc=${locParam}&embed=1${sitePart}`;
 }
 
 export function isLocalCmsUrl(): boolean {

@@ -132,7 +132,7 @@ export default function AgencyPage() {
   }
 
   function copyGhlMenuLink(siteId: string) {
-    const url = ghlMenuAuthUrl();
+    const url = ghlMenuAuthUrl('{{location.id}}', siteId);
     navigator.clipboard.writeText(url);
     setCopiedGhlId(siteId);
     setTimeout(() => setCopiedGhlId(null), 2500);
@@ -991,7 +991,7 @@ Ez töröl minden tartalmat, terméket és médiát! Visszavonhatatlan!`)) retur
                   background: 'var(--bg-primary)', fontSize: '11px', wordBreak: 'break-all',
                   border: '1px solid var(--border)', color: '#ca8a04',
                 }}>
-                  {ghlMenuAuthUrl()}
+                  {ghlMenuAuthUrl('{{location.id}}', ghlSetupSite._id)}
                 </code>
                 <button
                   type="button"
