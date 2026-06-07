@@ -1,0 +1,30 @@
+# Render.com — 0-24 CMS (ingyenes próba, éleshez ~7 USD/hó "Starter")
+# https://render.com — regisztráció, majd: New → Blueprint → ezt a repót
+
+services:
+  - type: web
+    name: goscale-cms
+    runtime: node
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /agency
+    disk:
+      name: cms-templates
+      mountPath: /opt/render/project/src/data
+      sizeGB: 2
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: AGENCY_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        value: https://cms.goscale.hu
+      - key: CLOUDFLARE_API_TOKEN
+        sync: false
+      - key: CLOUDFLARE_ACCOUNT_ID
+        sync: false
