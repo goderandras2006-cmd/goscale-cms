@@ -3,6 +3,7 @@ import { connectDB } from '@/lib/mongodb';
 import Site from '@/models/Site';
 import { resolveTemplateFiles } from '@/lib/template-storage';
 import { htmlSlugFromFilename } from '@/lib/template-files';
+import { checkSiteAccess } from '@/lib/site-access';
 
 export interface SiteImage {
   path: string;
@@ -28,10 +29,7 @@ export async function GET(
 ) {
   const { siteId } = await params;
 
-  const agencyAuth = req.cookies.get('agency_auth')?.value;
-  const siteAuth = req.cookies.get(`site_auth_${siteId}`)?.value;
-
-  if (agencyAuth !== process.env.AGENCY_PASSWORD && !siteAuth) {
+  if (!(await checkSiteAccess(req, siteId))) {
     return NextResponse.json({ error: 'Jogosulatlan hozzáférés' }, { status: 401 });
   }
 
@@ -39,12 +37,6 @@ export async function GET(
   const site = await Site.findById(siteId).lean() as any;
   if (!site) {
     return NextResponse.json({ error: 'Site nem található' }, { status: 404 });
-  }
-
-  if (siteAuth && agencyAuth !== process.env.AGENCY_PASSWORD) {
-    if (siteAuth !== site.password) {
-      return NextResponse.json({ error: 'Érvénytelen jelszó' }, { status: 401 });
-    }
   }
 
   const templateFiles = resolveTemplateFiles(site);

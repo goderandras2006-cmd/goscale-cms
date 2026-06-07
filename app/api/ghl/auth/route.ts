@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import Site from '@/models/Site';
 import { getRequestOrigin } from '@/lib/cms-base-url';
+import { createGhlSessionToken } from '@/lib/ghl-session';
 
 /**
  * GET /api/ghl/auth?loc=GHL_LOCATION_ID
@@ -85,7 +86,10 @@ export async function GET(req: NextRequest) {
     // Session cookie beállítása (ugyanaz a mechanizmus mint a normál belépésnél)
     const embed = req.nextUrl.searchParams.get('embed') !== '0';
     const origin = getRequestOrigin(req);
-    const redirectUrl = new URL(`/edit/${site._id}${embed ? '?embed=1' : ''}`, origin);
+    const ghlSession = createGhlSessionToken(site._id);
+    const redirectUrl = new URL(`/edit/${site._id}`, origin);
+    if (embed) redirectUrl.searchParams.set('embed', '1');
+    redirectUrl.searchParams.set('ghlSession', ghlSession);
     const response = NextResponse.redirect(redirectUrl, { status: 302 });
 
     const isHttps = origin.startsWith('https://');

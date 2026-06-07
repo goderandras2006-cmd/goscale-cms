@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { siteApiFetch, withGhlSession } from '@/lib/client-ghl-session';
 
 interface ImageUploadInputProps {
   siteId: string;
@@ -20,7 +21,7 @@ export function ImageUploadInput({ siteId, value, onChange, label = 'Kép' }: Im
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await fetch(`/api/sites/${siteId}/upload`, { method: 'POST', body: formData });
+      const res = await siteApiFetch(siteId, `/api/sites/${siteId}/upload`, { method: 'POST', body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Feltöltés sikertelen');
       onChange(data.url);
@@ -34,7 +35,7 @@ export function ImageUploadInput({ siteId, value, onChange, label = 'Kép' }: Im
   const previewSrc = value
     ? value.startsWith('http') || value.startsWith('/')
       ? value
-      : `/api/sites/${siteId}/preview-asset?path=${encodeURIComponent(value)}`
+      : withGhlSession(siteId, `/api/sites/${siteId}/preview-asset?path=${encodeURIComponent(value)}`)
     : '';
 
   return (

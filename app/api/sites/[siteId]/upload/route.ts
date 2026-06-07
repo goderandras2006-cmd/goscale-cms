@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import Site from '@/models/Site';
 import { saveSiteUpload } from '@/lib/image-upload';
+import { checkSiteAccess } from '@/lib/site-access';
 
 export async function POST(
   req: NextRequest,
@@ -9,10 +10,7 @@ export async function POST(
 ) {
   const { siteId } = await params;
 
-  const agencyAuth = req.cookies.get('agency_auth')?.value;
-  const siteAuth = req.cookies.get(`site_auth_${siteId}`)?.value;
-
-  if (agencyAuth !== process.env.AGENCY_PASSWORD && !siteAuth) {
+  if (!(await checkSiteAccess(req, siteId))) {
     return NextResponse.json({ error: 'Jogosulatlan hozzáférés' }, { status: 401 });
   }
 
@@ -20,10 +18,6 @@ export async function POST(
   const site = await Site.findById(siteId);
   if (!site) {
     return NextResponse.json({ error: 'Site nem található' }, { status: 404 });
-  }
-
-  if (siteAuth && agencyAuth !== process.env.AGENCY_PASSWORD && siteAuth !== site.password) {
-    return NextResponse.json({ error: 'Érvénytelen jelszó' }, { status: 401 });
   }
 
   if (site.siteMode !== 'html_cloudflare') {

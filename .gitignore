@@ -24,6 +24,8 @@
 /data/templates/
 
 # misc
+.git-identity-name
+.git-identity-email
 .DS_Store
 *.pem
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { siteApiFetch, withGhlSession } from '@/lib/client-ghl-session';
 
 interface SiteImage {
   path: string;
@@ -30,7 +31,7 @@ export function MediaLibrary({ siteId, onReplaced }: MediaLibraryProps) {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`/api/sites/${siteId}/images`);
+      const res = await siteApiFetch(siteId, `/api/sites/${siteId}/images`);
       if (!res.ok) throw new Error('Nem sikerült betölteni a képeket');
       const data = await res.json();
       setImages(data);
@@ -53,14 +54,14 @@ export function MediaLibrary({ siteId, onReplaced }: MediaLibraryProps) {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const uploadRes = await fetch(`/api/sites/${siteId}/upload`, {
+      const uploadRes = await siteApiFetch(siteId, `/api/sites/${siteId}/upload`, {
         method: 'POST',
         body: formData,
       });
       const uploadData = await uploadRes.json();
       if (!uploadRes.ok) throw new Error(uploadData.error || 'Feltöltés sikertelen');
 
-      const replaceRes = await fetch(`/api/sites/${siteId}/replace-image`, {
+      const replaceRes = await siteApiFetch(siteId, `/api/sites/${siteId}/replace-image`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ oldPath, newPath: uploadData.url }),
@@ -199,6 +200,7 @@ export function MediaLibrary({ siteId, onReplaced }: MediaLibraryProps) {
               return (
                 <ImageCard
                   key={img.dataCmsKey}
+                  siteId={siteId}
                   img={img}
                   isReplacing={isReplacing}
                   isSuccess={isSuccess}
@@ -226,8 +228,9 @@ export function MediaLibrary({ siteId, onReplaced }: MediaLibraryProps) {
 
 // Különálló kártya komponens, hogy a hover CSS működjön
 function ImageCard({
-  img, isReplacing, isSuccess, onClick,
+  siteId, img, isReplacing, isSuccess, onClick,
 }: {
+  siteId: string;
   img: SiteImage;
   isReplacing: boolean;
   isSuccess: boolean;
@@ -260,7 +263,7 @@ function ImageCard({
         position: 'relative',
       }}>
         <img
-          src={img.previewUrl}
+          src={withGhlSession(siteId, img.previewUrl)}
           alt={img.label}
           style={{
             width: '100%', height: '100%',

@@ -13,6 +13,11 @@ import {
   scrollPreviewToField,
   setPreviewSiteId,
 } from '@/lib/edit-preview';
+import {
+  initGhlSessionFromUrl,
+  siteApiFetch,
+  withGhlSession,
+} from '@/lib/client-ghl-session';
 
 interface Product {
   _id: string;
@@ -96,8 +101,9 @@ export default function EditPage({ params }: { params: Promise<{ siteId: string 
   );
 
   useEffect(() => {
+    initGhlSessionFromUrl(siteId, searchParams);
     loadData().then(() => setIsLoggedIn(true)).catch(() => {});
-  }, [siteId]);
+  }, [siteId, searchParams]);
 
   useEffect(() => {
     if (!isDirty) return;
@@ -110,7 +116,7 @@ export default function EditPage({ params }: { params: Promise<{ siteId: string 
   }, [isDirty]);
 
   async function loadData() {
-    const res = await fetch(`/api/content/${siteId}`);
+    const res = await siteApiFetch(siteId, `/api/content/${siteId}`);
     if (!res.ok) throw new Error('Auth szükséges');
     const data = await res.json();
     setContent(data.draft || {});
@@ -122,7 +128,7 @@ export default function EditPage({ params }: { params: Promise<{ siteId: string 
     }
 
     if (data.site?.type === 'shop' || data.site?.type === 'hybrid') {
-      const prodRes = await fetch(`/api/products/${siteId}`);
+      const prodRes = await siteApiFetch(siteId, `/api/products/${siteId}`);
       if (prodRes.ok) setProducts(await prodRes.json());
     }
   }
@@ -261,7 +267,7 @@ export default function EditPage({ params }: { params: Promise<{ siteId: string 
     setSaving(true);
     if (!silent) setSaveMsg('');
     try {
-      const res = await fetch(`/api/content/${siteId}`, {
+      const res = await siteApiFetch(siteId, `/api/content/${siteId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data, type: site?.type }),
@@ -309,7 +315,7 @@ export default function EditPage({ params }: { params: Promise<{ siteId: string 
     if (!confirm('Visszaállítod az utolsó éles verziót? A nem élesített piszkozat változásai elvesznek.')) return;
     setRestoring(true);
     try {
-      const res = await fetch(`/api/content/${siteId}/restore`, { method: 'POST' });
+      const res = await siteApiFetch(siteId, `/api/content/${siteId}/restore`, { method: 'POST' });
       const data = await res.json();
       if (res.ok) {
         setContent(data.data);
@@ -332,7 +338,7 @@ export default function EditPage({ params }: { params: Promise<{ siteId: string 
     setSaving(true);
     setSaveMsg('');
     try {
-      const res = await fetch(`/api/content/${siteId}`, {
+      const res = await siteApiFetch(siteId, `/api/content/${siteId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: content, type: site?.type }),
@@ -356,7 +362,7 @@ export default function EditPage({ params }: { params: Promise<{ siteId: string 
       if (isDirty) {
         await saveContentData(content, true);
       }
-      const res = await fetch(`/api/content/${siteId}`, {
+      const res = await siteApiFetch(siteId, `/api/content/${siteId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -381,7 +387,7 @@ export default function EditPage({ params }: { params: Promise<{ siteId: string 
   async function handleAddProduct(e: React.FormEvent) {
     e.preventDefault();
     try {
-      const res = await fetch(`/api/products/${siteId}`, {
+      const res = await siteApiFetch(siteId, `/api/products/${siteId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newProduct),
@@ -397,7 +403,7 @@ export default function EditPage({ params }: { params: Promise<{ siteId: string 
 
   async function handleUpdateProduct(productId: string, updates: Partial<Product>) {
     try {
-      const res = await fetch(`/api/products/${siteId}/${productId}`, {
+      const res = await siteApiFetch(siteId, `/api/products/${siteId}/${productId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
@@ -413,7 +419,7 @@ export default function EditPage({ params }: { params: Promise<{ siteId: string 
   async function handleDeleteProduct(productId: string) {
     if (!confirm('Biztosan törlöd ezt a terméket?')) return;
     try {
-      await fetch(`/api/products/${siteId}/${productId}`, { method: 'DELETE' });
+      await siteApiFetch(siteId, `/api/products/${siteId}/${productId}`, { method: 'DELETE' });
       setProducts(prev => prev.filter(p => p._id !== productId));
     } catch {}
   }
@@ -538,7 +544,10 @@ export default function EditPage({ params }: { params: Promise<{ siteId: string 
   // HTML módban a lokális preview API-t használjuk (X-Frame-Options miatt SOHA nem liveUrl!)
   // Demo módban a Next.js /site/... sablont
   const previewUrl = isHtmlMode
-    ? `/api/sites/${siteId}/preview?slug=${encodeURIComponent(activePageSlug)}&mode=edit&t=${previewKey}`
+    ? withGhlSession(
+        siteId,
+        `/api/sites/${siteId}/preview?slug=${encodeURIComponent(activePageSlug)}&mode=edit&t=${previewKey}`
+      )
     : `/site/${siteId}${hasMultiplePages && activePageSlug ? `/${activePageSlug}` : ''}`;
 
   const visibleEditableFields = (site?.editableFields || []).filter(fieldAppliesToActivePage);
@@ -1363,7 +1372,10 @@ export default function EditPage({ params }: { params: Promise<{ siteId: string 
                   justifyContent: 'center',
                 }}>
                   <img
-                    src={`/api/sites/${siteId}/preview-asset?path=${encodeURIComponent(imageReplacePanel.originalPath)}`}
+                    src={withGhlSession(
+                      siteId,
+                      `/api/sites/${siteId}/preview-asset?path=${encodeURIComponent(imageReplacePanel.originalPath)}`
+                    )}
                     alt=""
                     style={{ maxWidth: '100%', maxHeight: '120px', objectFit: 'contain' }}
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -1384,7 +1396,7 @@ export default function EditPage({ params }: { params: Promise<{ siteId: string 
                   setImageUploading(true);
                   setImageUploadError('');
                   try {
-                    const res = await fetch(`/api/sites/${siteId}/replace-image`, {
+                    const res = await siteApiFetch(siteId, `/api/sites/${siteId}/replace-image`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({

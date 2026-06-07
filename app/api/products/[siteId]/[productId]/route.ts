@@ -1,18 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import Product from '@/models/Product';
-import Site from '@/models/Site';
-
-async function verifyAuth(req: NextRequest, siteId: string): Promise<boolean> {
-  const agencyAuth = req.cookies.get('agency_auth')?.value;
-  if (agencyAuth === process.env.AGENCY_PASSWORD) return true;
-
-  const siteAuth = req.cookies.get(`site_auth_${siteId}`)?.value;
-  if (!siteAuth) return false;
-
-  const site = await Site.findById(siteId);
-  return !!(site && siteAuth === site.password);
-}
+import { checkSiteAccess } from '@/lib/site-access';
 
 // PUT /api/products/[siteId]/[productId] — Termék frissítése
 export async function PUT(
@@ -22,7 +11,7 @@ export async function PUT(
   const { siteId, productId } = await params;
   await connectDB();
 
-  if (!(await verifyAuth(req, siteId))) {
+  if (!(await checkSiteAccess(req, siteId))) {
     return NextResponse.json({ error: 'Jogosulatlan hozzáférés' }, { status: 401 });
   }
 
@@ -55,7 +44,7 @@ export async function DELETE(
   const { siteId, productId } = await params;
   await connectDB();
 
-  if (!(await verifyAuth(req, siteId))) {
+  if (!(await checkSiteAccess(req, siteId))) {
     return NextResponse.json({ error: 'Jogosulatlan hozzáférés' }, { status: 401 });
   }
 

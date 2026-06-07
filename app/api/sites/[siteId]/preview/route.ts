@@ -7,6 +7,7 @@ import { resolveTemplateFiles } from '@/lib/template-storage';
 import { getPickerScript, getEditScript } from '@/lib/preview-scripts';
 import type { EditableField } from '@/lib/editable-fields';
 import Product from '@/models/Product';
+import { checkSiteAccess } from '@/lib/site-access';
 
 /**
  * GET /api/sites/[siteId]/preview?slug=&t=
@@ -20,29 +21,19 @@ import Product from '@/models/Product';
 export async function GET(req: NextRequest, { params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
 
-  // Auth: agency VAGY site auth
-  const agencyAuth = req.cookies.get('agency_auth')?.value;
-  const siteAuth = req.cookies.get(`site_auth_${siteId}`)?.value;
-
-  if (agencyAuth !== process.env.AGENCY_PASSWORD && !siteAuth) {
+  if (!(await checkSiteAccess(req, siteId))) {
     return new NextResponse('401 Jogosulatlan', { status: 401 });
   }
 
+  const isAgency = req.cookies.get('agency_auth')?.value === process.env.AGENCY_PASSWORD;
   const slug = req.nextUrl.searchParams.get('slug') ?? '';
   const mode = req.nextUrl.searchParams.get('mode') ?? '';
 
   await connectDB();
 
-  // Site auth ellenőrzés
   const site = await Site.findById(siteId).lean() as any;
   if (!site) {
     return new NextResponse('404 Site nem található', { status: 404 });
-  }
-
-  if (siteAuth && agencyAuth !== process.env.AGENCY_PASSWORD) {
-    if (siteAuth !== site.password) {
-      return new NextResponse('401 Érvénytelen jelszó', { status: 401 });
-    }
   }
 
   if (site.siteMode !== 'html_cloudflare' || (!site.templateFiles && !site.templateDir)) {
@@ -95,7 +86,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ site
 
   html = rewriteRelativeLinks(html, siteId);
 
-  if (mode === 'picker' && agencyAuth === process.env.AGENCY_PASSWORD) {
+  if (mode === 'picker' && isAgency) {
     html = injectBeforeBodyEnd(html, `<script>${getPickerScript()}</script>`);
   } else if (mode === 'edit') {
     const fields: EditableField[] = site.editableFields || [];

@@ -10,28 +10,17 @@ import { resolveTemplateFiles } from '@/lib/template-storage';
 import { hasImageAssets } from '@/lib/persist-template';
 import Product from '@/models/Product';
 import type { EditableField } from '@/lib/editable-fields';
+import { checkSiteAccess } from '@/lib/site-access';
 
 // GET /api/content/[siteId] — Draft tartalom lekérése (kliens szerkesztőnek)
 export async function GET(req: NextRequest, { params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
 
-  // Auth: agency VAGY site auth
-  const agencyAuth = req.cookies.get('agency_auth')?.value;
-  const siteAuth = req.cookies.get(`site_auth_${siteId}`)?.value;
-
-  if (agencyAuth !== process.env.AGENCY_PASSWORD && !siteAuth) {
+  if (!(await checkSiteAccess(req, siteId))) {
     return NextResponse.json({ error: 'Jogosulatlan hozzáférés' }, { status: 401 });
   }
 
   await connectDB();
-
-  // Ha site auth van, ellenőrizzük a jelszót
-  if (siteAuth && agencyAuth !== process.env.AGENCY_PASSWORD) {
-    const site = await Site.findById(siteId);
-    if (!site || siteAuth !== site.password) {
-      return NextResponse.json({ error: 'Érvénytelen jelszó' }, { status: 401 });
-    }
-  }
 
   const draft = await Content.findOne({ siteId, status: 'draft' });
   const published = await Content.findOne({ siteId, status: 'published' });
@@ -50,25 +39,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ site
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
 
-  const agencyAuth = req.cookies.get('agency_auth')?.value;
-  const siteAuth = req.cookies.get(`site_auth_${siteId}`)?.value;
-
-  if (agencyAuth !== process.env.AGENCY_PASSWORD && !siteAuth) {
+  if (!(await checkSiteAccess(req, siteId))) {
     return NextResponse.json({ error: 'Jogosulatlan hozzáférés' }, { status: 401 });
   }
 
   await connectDB();
 
-  let site;
-  if (siteAuth && agencyAuth !== process.env.AGENCY_PASSWORD) {
-    site = await Site.findById(siteId);
-    if (!site || siteAuth !== site.password) {
-      return NextResponse.json({ error: 'Érvénytelen jelszó' }, { status: 401 });
-    }
-  }
-
   const body = await req.json();
-  const siteDoc = site || (await Site.findById(siteId).lean());
+  const siteDoc = await Site.findById(siteId).lean();
   const editableFields = (siteDoc as { editableFields?: EditableField[] } | null)?.editableFields;
   const sanitized = sanitizeContent(body.data, body.type || 'landing', editableFields);
 
@@ -85,24 +63,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ site
 export async function POST(req: NextRequest, { params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
 
-  const agencyAuth = req.cookies.get('agency_auth')?.value;
-  const siteAuth = req.cookies.get(`site_auth_${siteId}`)?.value;
-
-  if (agencyAuth !== process.env.AGENCY_PASSWORD && !siteAuth) {
+  if (!(await checkSiteAccess(req, siteId))) {
     return NextResponse.json({ error: 'Jogosulatlan hozzáférés' }, { status: 401 });
   }
 
   await connectDB();
 
-  let site: any = null;
-  if (siteAuth && agencyAuth !== process.env.AGENCY_PASSWORD) {
-    site = await Site.findById(siteId).lean();
-    if (!site || siteAuth !== site.password) {
-      return NextResponse.json({ error: 'Érvénytelen jelszó' }, { status: 401 });
-    }
-  } else {
-    site = await Site.findById(siteId).lean();
-  }
+  const site: any = await Site.findById(siteId).lean();
 
   // Draft másolása published-be
   const draft = await Content.findOne({ siteId, status: 'draft' });

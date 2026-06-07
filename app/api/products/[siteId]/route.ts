@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import Product from '@/models/Product';
-import Site from '@/models/Site';
+import { checkSiteAccess } from '@/lib/site-access';
 
 // GET /api/products/[siteId] — Termékek listázása
 export async function GET(req: NextRequest, { params }: { params: Promise<{ siteId: string }> }) {
@@ -15,22 +15,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ site
 export async function POST(req: NextRequest, { params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
 
-  const agencyAuth = req.cookies.get('agency_auth')?.value;
-  const siteAuth = req.cookies.get(`site_auth_${siteId}`)?.value;
-
-  if (agencyAuth !== process.env.AGENCY_PASSWORD && !siteAuth) {
+  if (!(await checkSiteAccess(req, siteId))) {
     return NextResponse.json({ error: 'Jogosulatlan hozzáférés' }, { status: 401 });
   }
 
-  if (siteAuth && agencyAuth !== process.env.AGENCY_PASSWORD) {
-    await connectDB();
-    const site = await Site.findById(siteId);
-    if (!site || siteAuth !== site.password) {
-      return NextResponse.json({ error: 'Érvénytelen jelszó' }, { status: 401 });
-    }
-  } else {
-    await connectDB();
-  }
+  await connectDB();
 
   const body = await req.json();
   const { name, description, priceHuf, imageUrl, category, active, slug } = body;

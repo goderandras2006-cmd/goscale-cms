@@ -4,6 +4,7 @@ import Site from '@/models/Site';
 import { BINARY_PREFIX } from '@/lib/template-files';
 import { resolveTemplateFiles } from '@/lib/template-storage';
 import path from 'path';
+import { checkSiteAccess } from '@/lib/site-access';
 
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -34,11 +35,7 @@ const MIME_TYPES: Record<string, string> = {
 export async function GET(req: NextRequest, { params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
 
-  // Auth: agency VAGY site auth
-  const agencyAuth = req.cookies.get('agency_auth')?.value;
-  const siteAuth = req.cookies.get(`site_auth_${siteId}`)?.value;
-
-  if (agencyAuth !== process.env.AGENCY_PASSWORD && !siteAuth) {
+  if (!(await checkSiteAccess(req, siteId))) {
     return new NextResponse('401 Jogosulatlan', { status: 401 });
   }
 
@@ -69,12 +66,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ site
   const site = await Site.findById(siteId).lean() as any;
   if (!site) {
     return new NextResponse('Site nem található', { status: 404 });
-  }
-
-  if (siteAuth && agencyAuth !== process.env.AGENCY_PASSWORD) {
-    if (siteAuth !== site.password) {
-      return new NextResponse('Érvénytelen jelszó', { status: 401 });
-    }
   }
 
   const templateFiles = resolveTemplateFiles(site);
