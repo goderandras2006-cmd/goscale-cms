@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import Site from '@/models/Site';
+import { getRequestOrigin } from '@/lib/cms-base-url';
 
 /**
  * GET /api/ghl/auth?loc=GHL_LOCATION_ID
@@ -75,10 +76,11 @@ export async function GET(req: NextRequest) {
 
     // Session cookie beállítása (ugyanaz a mechanizmus mint a normál belépésnél)
     const embed = req.nextUrl.searchParams.get('embed') !== '0';
-    const redirectUrl = new URL(`/edit/${site._id}${embed ? '?embed=1' : ''}`, req.nextUrl.origin);
+    const origin = getRequestOrigin(req);
+    const redirectUrl = new URL(`/edit/${site._id}${embed ? '?embed=1' : ''}`, origin);
     const response = NextResponse.redirect(redirectUrl, { status: 302 });
 
-    const isHttps = req.nextUrl.protocol === 'https:';
+    const isHttps = origin.startsWith('https://');
     const cookieSecure = isHttps || process.env.NODE_ENV === 'production';
     const cookieOpts = {
       httpOnly: true as const,
